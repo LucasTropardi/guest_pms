@@ -19,21 +19,22 @@ public class GuestController {
     private final GuestService guestService;
 
     @PostMapping
-    public ResponseEntity<GuestResponse> create(@Valid @RequestBody GuestRequest request,
-                                                Authentication authentication) {
-        return ResponseEntity.ok(new GuestResponse(guestService.save(request, authentication)));
+    public ResponseEntity<GuestResponse> create(@RequestHeader("Authorization") String token,
+                                                @Valid @RequestBody GuestRequest request) {
+        return ResponseEntity.ok(new GuestResponse(guestService.save(request, token)));
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<GuestResponse> update(@PathVariable Long id,
                                                 @Valid @RequestBody GuestRequest request,
-                                                Authentication authentication) {
-        return ResponseEntity.ok(new GuestResponse(guestService.update(id, request, authentication)));
+                                                @RequestHeader("Authorization") String token) {
+        return ResponseEntity.ok(new GuestResponse(guestService.update(id, request, token)));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id, Authentication authentication) {
-        guestService.delete(id, authentication);
+    public ResponseEntity<Void> delete(@PathVariable Long id,
+                                       @RequestHeader("Authorization") String token) {
+        guestService.delete(id, token);
         return ResponseEntity.noContent().build();
     }
 

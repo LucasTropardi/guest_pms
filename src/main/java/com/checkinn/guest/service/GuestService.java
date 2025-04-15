@@ -1,14 +1,14 @@
 package com.checkinn.guest.service;
 
+import com.checkinn.guest.client.AuthClient;
 import com.checkinn.guest.dto.GuestRequest;
+import com.checkinn.guest.dto.UserAuthResponse;
 import com.checkinn.guest.model.Guest;
 import com.checkinn.guest.model.GuestLog;
 import com.checkinn.guest.repository.GuestLogRepository;
 import com.checkinn.guest.repository.GuestRepository;
-import com.checkinn.guest.security.AuthenticatedUser;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -20,8 +20,9 @@ public class GuestService {
 
     private final GuestRepository guestRepository;
     private final GuestLogRepository guestLogRepository;
+    private final AuthClient authClient;
 
-    public Guest save(GuestRequest request, Authentication authentication) {
+    public Guest save(GuestRequest request, String token) {
         if (guestRepository.findByDocumento(request.getDocumento()).isPresent()) {
             throw new RuntimeException("Documento já cadastrado.");
         }
@@ -37,12 +38,11 @@ public class GuestService {
                 .observacoes(request.getObservacoes())
                 .build());
 
-        logAction(authentication, guest.getId(), "CREATED");
-
+        logAction(token, guest.getId(), "CREATED");
         return guest;
     }
 
-    public Guest update(Long id, GuestRequest request, Authentication authentication) {
+    public Guest update(Long id, GuestRequest request, String token) {
         Guest guest = findById(id);
 
         guest.setNome(request.getNome());
@@ -55,14 +55,14 @@ public class GuestService {
         guest.setObservacoes(request.getObservacoes());
 
         Guest updated = guestRepository.save(guest);
-        logAction(authentication, id, "UPDATED");
+        logAction(token, id, "UPDATED");
         return updated;
     }
 
-    public void delete(Long id, Authentication authentication) {
+    public void delete(Long id, String token) {
         Guest guest = findById(id);
         guestRepository.delete(guest);
-        logAction(authentication, id, "DELETED");
+        logAction(token, id, "DELETED");
     }
 
     public List<Guest> findAll() {
@@ -74,14 +74,18 @@ public class GuestService {
                 .orElseThrow(() -> new EntityNotFoundException("Hóspede não encontrado."));
     }
 
-    private void logAction(Authentication authentication, Long idHospede, String acao) {
-        if (authentication.getPrincipal() instanceof AuthenticatedUser user) {
-            guestLogRepository.save(GuestLog.builder()
-                    .idUsuario(user.getId())
-                    .idHospede(idHospede)
-                    .acao(acao)
-                    .dataHora(LocalDateTime.now())
-                    .build());
-        }
+    private void logAction(String token, Long idHospede, String acao) {
+        Long idUsuario = extractUserId(token);
+        guestLogRepository.save(GuestLog.builder()
+                .idUsuario(idUsuario)
+                .idHospede(idHospede)
+                .acao(acao)
+                .dataHora(LocalDateTime.now())
+                .build());
+    }
+
+    private Long extractUserId(String token) {
+        UserAuthResponse user = authClient.validateToken(token);
+        return user.getId();
     }
 }
